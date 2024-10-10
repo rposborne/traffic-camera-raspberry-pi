@@ -6,7 +6,7 @@ import requests
 from pprint import pprint
 from datetime import datetime
 
-from picamera import PiCamera
+from picamera2 import Picamera2
 
 from file_org import create_daily_folder
 
@@ -18,7 +18,7 @@ current_date = datetime.now()
 sub_directory = create_daily_folder(current_date, os.getcwd())
 
 # Create camera object
-camera = PiCamera()
+camera = Picamera2()
 name = input("Create a name for the picture: ") + ".jpeg"
 
 
@@ -31,7 +31,7 @@ camera.exposure_mode = "sports"
 # camera.iso = 400
 
 time.sleep(2)
-camera.capture(name)
+camera.start_and_capture_file(name, delay=0)
 print("%s snapped!" % name)
 
 

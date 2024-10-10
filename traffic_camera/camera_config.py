@@ -4,7 +4,7 @@
 # Date last modified: 10/25/2021
 # Python Version: 1.1
 
-from picamera import PiCamera
+from picamera2 import Picamera2
 import time
 
 
@@ -21,7 +21,7 @@ def capture_num_frames(send_queue, e1, receive_queue):
     """
 
     # Camera Initializations
-    camera = PiCamera()
+    camera = Picamera2()
     camera.zoom = (0.35, 0.35, 0.30, 0.30)
     # camera.color_effects = (128,128) # black and white
     camera.contrast = 13
@@ -35,15 +35,13 @@ def capture_num_frames(send_queue, e1, receive_queue):
             pic_array = []
             max_speed = receive_queue.get()
 
-            for i, filename in enumerate(
-                camera.capture_continuous(
-                    "image{counter:02d}_max_speed%02d.mph.jpg" % max_speed
-                )
-            ):
-                pic_array.append(filename)
-                print(f"{filename} created!")
-                if not e1.is_set():
-                    break  # Ends camera capture process
+            for i in range(15):
+              filename = f"image{i:02d}_max_speed{max_speed:02d}.mph.jpg"
+              camera.capture_file(filename)
+              pic_array.append(filename)
+              print(f"{filename} created!")
+              if not e1.is_set():
+                break  # Ends camera capture process
 
             send_queue.put(pic_array)  # Puts array of images into queue
         else:
