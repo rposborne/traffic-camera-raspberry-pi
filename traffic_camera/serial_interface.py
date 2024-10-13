@@ -5,8 +5,7 @@
 # Python Version: 1.1
 
 import serial.tools.list_ports
-import re
-from time import monotonic
+from time import sleep
 import json
 
 
@@ -20,7 +19,6 @@ def connect_USB():
     via serial interface."""
 
     portList = [str(onePort) for onePort in ports]
-    print(portList)
 
     portVar = portList[0][0:12]
     print("Connected to USB Port: " + portVar + "!")
@@ -33,35 +31,45 @@ def connect_USB():
     serialInst.open()
 
 
+def send_config():
+    """Sends configuration settings to OPS243 radar sensor."""
+    # S1 (Set Doppler Sampling Rate to 10k Hz)
+    # US (mph Speed Unit Setting)
+    # BV (Do not output blanks)
+    # R>10 (Reported Speed Minimum Filter Setting at 10 mph)
+    # OJ (Turn on JSON format)
+    # M>150 (Minimum Speed Magnitude at least 150)
+    _set_config(b'OJ')
+    _set_config(b'Oz')
+    _set_config(b'S1')
+    _set_config(b'US')
+    _set_config(b'BV')
+    _set_config(b'R>5')
+    _set_config(b'M>150')
+
+def persist_config():
+    _set_config(b'A!')
+
+def _set_config(value):
+    """Sends configuration settings to OPS243 radar sensor."""
+    serialInst.write(value + b"\r\n")
+    sleep(0.1)
+
+    serialInst.flush()
+
+    if serialInst.in_waiting:
+        packet = serialInst.readline()
+        data = packet.decode("utf").rstrip("\n")
+        print(data)
+
+
 def _serial_read_json():
     """Reads data into JSON format."""
     if serialInst.in_waiting:
         packet = serialInst.readline()
         data = packet.decode("utf").rstrip("\n")
-        data = json.loads(data)
 
-        print(abs(float(data["speed"])))  # reads speed key from OPS243
-
-
-def _data_array(array_length, queue3):
-    """Store the bytes into a list of fixed size 'array_length'.
-
-    This function is blocking, and will run until the list is full.
-
-    Parameters:
-    - array_length: integer that determines max size of list
-    - queue3: queue that the data is put into."""
-    if serialInst.in_waiting:
-        print("Data is received!")
-        speed_data_list = []
-        for i in range(array_length):
-            packet = serialInst.readline()
-            data = float(packet.decode("utf").rstrip("\n"))
-            maxVal = max(abs(speed_data_list))
-        queue3.put(maxVal)
-        return (speed_data_list, maxVal)  # Returns Tuple of entire array and max val
-    else:
-        return (None, None)
+        print(data)
 
 
 def data_array_any_amount(speed_limit, queue3, e):
@@ -80,21 +88,25 @@ def data_array_any_amount(speed_limit, queue3, e):
     serialInst.timeout = 0.3
 
     if serialInst.in_waiting:
-        print("Data is received!")
+
         speed_data_list = []
 
         sw = 0
+        maxVal = 0
         while sw == 0:  # Begin reading from serial interface.
             packet = serialInst.readline()
             data = packet.decode("utf").rstrip("\r\n")
+            try:
+                parsed_data = json.loads(data)
+            except json.JSONDecodeError:
+                print("Data is not in JSON format", data)
 
-            if data != "":  # If data is not empty string.
-                data = json.loads(data)
-                data = abs(float(data["speed"]))  # Read value of key 'speed'.
-                speed_data_list.append(data)  # Append speed to list.
+                continue
+            if parsed_data.get("speed"):
+                speed = abs(float(parsed_data["speed"]))  # Read value of key 'speed'.
+                speed_data_list.append(speed)  # Append speed to list.
 
                 maxVal = max(speed_data_list)
-
                 if maxVal > speed_limit:
                     e.set()  # Set Event object on, triggering camera_capture.
                     queue3.put(maxVal)
