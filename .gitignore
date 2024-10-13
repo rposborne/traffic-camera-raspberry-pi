@@ -1,3 +1,13 @@
 .venv
 .env
 *.pyc
+traffic_camera/fonts/pixelmix.ttf
+license_plate_detector.torchscript
+yolov8n.pt
+yolov8n.torchscript
+test_lpr_image.jpg.json
+yolov8n_ncnn_model*
+license_plate_detector_ncnn_model/*
+yolo11n_ncnn_model*
+yolo*.pt
+yolo*.torchscript

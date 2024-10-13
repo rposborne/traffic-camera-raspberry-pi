@@ -26,6 +26,7 @@ def LPR_to_file(queue, token, e):
     while True:  # Runs daemon (background) process
         # Collect the data from the queue from move_files_to_path
         if not queue.empty() and e.is_set():
+            continue
             new_file_list = queue.get()
             print(new_file_list)
 

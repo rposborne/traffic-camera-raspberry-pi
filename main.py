@@ -10,7 +10,6 @@
 
 
 # Standard library imports
-from os import system
 import multiprocessing as mp
 import time
 import warnings
@@ -18,13 +17,13 @@ import warnings
 # Local application imports
 from traffic_camera.serial_interface import connect_USB
 from traffic_camera.serial_interface import data_array_any_amount
-from traffic_camera.serial_interface import ports, serialInst
 
 from traffic_camera.file_org import create_main_folder, current_date
 from traffic_camera.file_org import create_timestamp_folder, remove_empty_dir
 from traffic_camera.file_org import create_daily_folder, move_files_to_path
 
 from traffic_camera.camera_config import capture_num_frames
+
 # User Arguments
 # Please modify these arguments to your Traffic Speed Camera application.
 # The `token` variable is from user account from: https://platerecognizer.com/
@@ -35,9 +34,9 @@ token = "031b6acfe3690c31682ff11cc0282260e8d4561e"
 use_matrix = True
 
 if use_matrix:
-  from traffic_camera.led_dot_matrix import display_text, flash_text, led
+    from traffic_camera.led_dot_matrix import display_text, flash_text, led
 
-import traffic_camera.license_plate_recognition_API as LPR
+import traffic_camera.onboard_lpr_recognition as LPR
 
 ############################ Global Variables ################################
 # Constants
@@ -61,7 +60,7 @@ folder_path = ""
 
 # Empty display of LED Matrix.
 if use_matrix:
-  led.clear()
+    led.clear()
 
 # Initialization of variables shared amongst processes.
 speed_list = mp.Array("d", range(DATA_BUFFER))
@@ -88,7 +87,6 @@ if __name__ == "__main__":
     # Main program to run the traffic speed camera.
 
     while True:
-
         # Main loop for program.
         try:
             # If this is the first time the program is being run for the day,
@@ -115,8 +113,10 @@ if __name__ == "__main__":
 
                 # Create daemon process for LPR Recognition.
                 LPR_process = mp.Process(
-                    target=LPR.LPR_to_file,
-                    args=(queue_pic_filenames, token, event_LPR_to_file_org,
+                    target=LPR.onboard_lpr_to_file,
+                    args=(
+                        queue_pic_filenames,
+                        event_LPR_to_file_org,
                     ),
                     name="LPR",
                 )
@@ -141,9 +141,8 @@ if __name__ == "__main__":
 
             # If there is data that is received...
             if (speed_list, max_speed) != (None, None):
-
                 # And if the reported max speed is less than the speed limit...
-                if max_speed <= speed_limit :
+                if max_speed <= speed_limit:
                     # The LED Dot Matrix will flash several times.
                     if use_matrix and max_speed > 1:
                         flash_text(str(round(max_speed)), FLASH_TIME, NUM_FLASH_LONG)
@@ -169,22 +168,23 @@ if __name__ == "__main__":
                     # Transfer files from the daily folder
                     # This is done after the camera has finished writing to the daily folder.
                     if folder_path:
-                      while  event_radar_to_camera.is_set():
-                          # Wait for camera to finish writing to the daily folder.
-                          time.sleep(0.1)
+                        while event_radar_to_camera.is_set():
+                            # Wait for camera to finish writing to the daily folder.
+                            time.sleep(0.1)
 
-                      move_files_to_path(
-                          queue_0=queue_captured_pics,
-                          old_path=daily_folder_path,
-                          desired_path=folder_path,
-                          queue_1=queue_pic_filenames,
-                          e1=event_LPR_to_file_org,
-                      )
+                        move_files_to_path(
+                            queue_0=queue_captured_pics,
+                            old_path=daily_folder_path,
+                            desired_path=folder_path,
+                            queue_1=queue_pic_filenames,
+                            e1=event_LPR_to_file_org,
+                        )
 
         except KeyboardInterrupt:
             # Kill all daemon processes.
-            system("sudo pkill python")
-            warnings.warn("Killed all processes.")
+            camera_process.terminate()
+            LPR_process.terminate()
+            warnings.warn("Terminated camera_process and LPR_process.")
 
         except Exception as e:
             # warnings.warn("Keyboard interrupt was detected. Ending program now.")``
@@ -195,3 +195,11 @@ if __name__ == "__main__":
             LPR_process.join(3.0)
             warnings.warn("Terminated camera_process and LPR Process")
             sw = 0
+
+        # finally:
+        #     # Force kill all processes.
+        #     camera_process.terminate()
+        #     LPR_process.terminate()
+        #     warnings.warn("Terminated camera_process and LPR_process.")
+
+        #     system("sudo pkill python")
