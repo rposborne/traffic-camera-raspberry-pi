@@ -82,15 +82,21 @@ def move_files_to_path(queue_0, old_path, desired_path, queue_1, e1):
     file_list = []
     while not queue_0.empty():
         file_list = queue_0.get()
-        # print(file_list)
 
     # Appends filenames to desired directory path
-    new_file_list = [os.path.join(desired_path, file) for file in file_list]
-    # _append_to_excel(new_file_list)
-
+    new_file_list = []
     # Moves file to desired directory
     for file in file_list:
-        shutil.move(os.path.join(old_path, file), os.path.join(desired_path, file))
+        # Check if file is already in desired path
+        if os.path.basename(file) in os.listdir(desired_path):
+            continue
+        src_path = os.path.join(old_path, file)
+        dst_path = os.path.join(desired_path, os.path.basename(file))
+        if src_path != dst_path:
+            shutil.move(src=src_path, dst=dst_path)
+            new_file_list.append(dst_path)
+        else:
+            print(f"Source and destination are the same for {src_path}, skipping copy.")
 
     # Sends full file names to queue for LPR process
     queue_1.put(new_file_list)
@@ -107,12 +113,3 @@ def remove_empty_dir(folder_path):
             print("Empty folders deleted!")
 
 
-def _append_to_excel(array):
-    """Creates an Excel sheet for filenames."""
-    wb = xlwt.Workbook()
-    sheet1 = wb.add_sheet("Sheet 1")
-    style = xlwt.easyxf("alignment: wrap on")
-    col = 0
-    for i in range(len(array)):
-        sheet1.write(i, col, array[i], style)
-    wb.save("Camera_Pics.xls")
