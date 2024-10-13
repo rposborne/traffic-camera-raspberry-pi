@@ -34,7 +34,7 @@ def display_text(text_1, time_on=0):
   # Create an image with the text
   image = Image.new('1', (8 * len(text_1), 8))
   draw = ImageDraw.Draw(image)
-  font_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "pixelmix.ttf"))
+  font_path = os.path.abspath(os.path.join(os.path.dirname(__file__),  "fonts" , "pixelmix.ttf"))
   font = font = ImageFont.truetype(font_path, 8)
   char_display_time = 0.3
   timer = 0
