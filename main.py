@@ -76,7 +76,6 @@ queue_captured_speed = mp.JoinableQueue()
 # Creation/Initialization of muliprocessing events
 event_radar_to_camera = mp.Event()
 event_LPR_to_file_org = mp.Event()
-event_camera_has_pending_writes = mp.Event()
 event_radar_to_camera.clear()
 event_LPR_to_file_org.set()
 
@@ -131,7 +130,6 @@ if __name__ == "__main__":
                     args=(
                         queue_captured_pics,
                         event_radar_to_camera,
-                        event_camera_has_pending_writes,
                         queue_captured_speed,
                         daily_folder_path,
                     ),
@@ -171,7 +169,7 @@ if __name__ == "__main__":
                     # Transfer files from the daily folder
                     # This is done after the camera has finished writing to the daily folder.
                     if folder_path:
-                      while event_camera_has_pending_writes.is_set() or event_radar_to_camera.is_set():
+                      while  event_radar_to_camera.is_set():
                           # Wait for camera to finish writing to the daily folder.
                           time.sleep(0.1)
 
