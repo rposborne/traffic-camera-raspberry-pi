@@ -12,6 +12,7 @@
 # Standard library imports
 from os import system
 import multiprocessing as mp
+import time
 import warnings
 
 # Local application imports
@@ -24,21 +25,21 @@ from traffic_camera.file_org import create_timestamp_folder, remove_empty_dir
 from traffic_camera.file_org import create_daily_folder, move_files_to_path
 
 from traffic_camera.camera_config import capture_num_frames
+# User Arguments
+# Please modify these arguments to your Traffic Speed Camera application.
+# The `token` variable is from user account from: https://platerecognizer.com/
+speed_limit = 5  # in mph
+main_folder = "LPR_Speed_Photos"  # Name of your main directory
+parent_directory = "/home/rposborne/"  # Location of your main directory
+token = "031b6acfe3690c31682ff11cc0282260e8d4561e"
+use_matrix = True
 
-from traffic_camera.led_dot_matrix import display_text, flash_text, led
+if use_matrix:
+  from traffic_camera.led_dot_matrix import display_text, flash_text, led
 
 import traffic_camera.license_plate_recognition_API as LPR
 
 ############################ Global Variables ################################
-
-# User Arguments
-# Please modify these arguments to your Traffic Speed Camera application.
-# The `token` variable is from user account from: https://platerecognizer.com/
-speed_limit = 10  # in mph
-main_folder = "LPR Speed Photos"  # Name of your main directory
-parent_directory = "/home/pi/Desktop/"  # Location of your main directory
-token = "b0d681034ef2a4b8d3db7e0813e440f4780e1519"
-
 # Constants
 DATA_BUFFER = 30  # size of speed_list
 FLASH_TIME = 0.08
@@ -59,7 +60,8 @@ daily_folder_path = ""
 folder_path = ""
 
 # Empty display of LED Matrix.
-led.clear()
+if use_matrix:
+  led.clear()
 
 # Initialization of variables shared amongst processes.
 speed_list = mp.Array("d", range(DATA_BUFFER))
@@ -74,6 +76,7 @@ queue_captured_speed = mp.JoinableQueue()
 # Creation/Initialization of muliprocessing events
 event_radar_to_camera = mp.Event()
 event_LPR_to_file_org = mp.Event()
+event_camera_has_pending_writes = mp.Event()
 event_radar_to_camera.clear()
 event_LPR_to_file_org.set()
 
@@ -86,6 +89,7 @@ if __name__ == "__main__":
     # Main program to run the traffic speed camera.
 
     while True:
+
         # Main loop for program.
         try:
             # If this is the first time the program is being run for the day,
@@ -113,7 +117,8 @@ if __name__ == "__main__":
                 # Create daemon process for LPR Recognition.
                 LPR_process = mp.Process(
                     target=LPR.LPR_to_file,
-                    args=(queue_pic_filenames, token, event_LPR_to_file_org),
+                    args=(queue_pic_filenames, token, event_LPR_to_file_org,
+                    ),
                     name="LPR",
                 )
                 LPR_process.daemon = True
@@ -126,7 +131,9 @@ if __name__ == "__main__":
                     args=(
                         queue_captured_pics,
                         event_radar_to_camera,
+                        event_camera_has_pending_writes,
                         queue_captured_speed,
+                        daily_folder_path,
                     ),
                 )
                 camera_process.daemon = True
@@ -136,48 +143,55 @@ if __name__ == "__main__":
 
             # If there is data that is received...
             if (speed_list, max_speed) != (None, None):
-                print(speed_list, max_speed)
 
                 # And if the reported max speed is less than the speed limit...
-                if max_speed <= speed_limit:
+                if max_speed <= speed_limit :
                     # The LED Dot Matrix will flash several times.
-                    flash_text(str(round(max_speed)), FLASH_TIME, NUM_FLASH_LONG)
-                    print(
-                        "The captured speed %d mph was below speed limit." % max_speed
-                    )
+                    if use_matrix and max_speed > 1:
+                        flash_text(str(round(max_speed)), FLASH_TIME, NUM_FLASH_LONG)
+                    # print(
+                    #     "The captured speed %d mph was below speed limit." % max_speed
+                    # )
 
                 else:
                     # The LED will flash and persist.
-                    flash_text(str(round(max_speed)), FLASH_TIME, NUM_FLASH)
-                    display_text(str(round(max_speed)), FLASH_PERSIST)
+                    if use_matrix:
+                        flash_text(str(round(max_speed)), FLASH_TIME, NUM_FLASH)
+                        display_text(str(round(max_speed)), FLASH_PERSIST)
 
-                    # A timestamp is created for this camera capture.
-                    folder_path = create_timestamp_folder(daily_folder_path)
                     print(
                         "Exceeded the {} mph speed limit at {} mph!".format(
                             speed_limit, max_speed
                         )
                     )
 
+                    # A timestamp is created for this camera capture.
+                    folder_path = create_timestamp_folder(daily_folder_path)
+
                     # Transfer files from the daily folder
-                    # to the time stamp folder.
-                    move_files_to_path(
-                        queue_captured_pics,
-                        daily_folder_path,
-                        folder_path,
-                        queue_pic_filenames,
-                        event_LPR_to_file_org,
-                    )
+                    # This is done after the camera has finished writing to the daily folder.
+                    if folder_path:
+                      while event_camera_has_pending_writes.is_set() or event_radar_to_camera.is_set():
+                          # Wait for camera to finish writing to the daily folder.
+                          time.sleep(0.1)
+
+                      move_files_to_path(
+                          queue_0=queue_captured_pics,
+                          old_path=daily_folder_path,
+                          desired_path=folder_path,
+                          queue_1=queue_pic_filenames,
+                          e1=event_LPR_to_file_org,
+                      )
 
         except KeyboardInterrupt:
             # Kill all daemon processes.
             system("sudo pkill python")
             warnings.warn("Killed all processes.")
 
-        except:
-            # warnings.warn("Keyboard interrupt was detected. Ending program now.")
-            warnings.warn("Ending program now.")
-            display_text(ERROR_STR)
+        except Exception as e:
+            # warnings.warn("Keyboard interrupt was detected. Ending program now.")``
+            warnings.warn("Ending program now.", e)
+            # display_text(ERROR_STR)
 
             camera_process.join(1.0)
             LPR_process.join(3.0)
