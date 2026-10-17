@@ -17,6 +17,7 @@ import warnings
 # Local application imports
 from traffic_camera.serial_interface import connect_USB
 from traffic_camera.serial_interface import data_array_any_amount
+from traffic_camera.radar_status import RadarPublisher
 
 from traffic_camera.file_org import create_main_folder, current_date
 from traffic_camera.file_org import create_timestamp_folder, remove_empty_dir
@@ -52,6 +53,8 @@ ERROR_STR = "ER"
 
 # Establish serial interface with OPS243.
 connect_USB()
+radar_status = RadarPublisher()
+radar_status.heartbeat()
 
 # Creation/Initialization of directories of traffic photos.
 curr_directory = create_main_folder(main_folder, parent_directory)
@@ -89,6 +92,7 @@ if __name__ == "__main__":
     while True:
         # Main loop for program.
         try:
+            radar_status.heartbeat()
             # If this is the first time the program is being run for the day,
             # a new folder based on the current date will be created.
             (daily_folder_path, current_date) = create_daily_folder(
@@ -105,7 +109,8 @@ if __name__ == "__main__":
             # This will return data only if data is received.
             # Otherwise, a a tuple of (None, None) is returned.
             (speed_list, max_speed) = data_array_any_amount(
-                speed_limit, queue_captured_speed, event_radar_to_camera
+                speed_limit, queue_captured_speed, event_radar_to_camera,
+                on_speed=radar_status.reading,
             )
 
             if sw == 0:  # Runs following code snippet once:

@@ -91,8 +91,18 @@ def perform_local_lpr(file):
     # detect license plates
 
     license_plates = ncnn_license_plate_detector(image)[0]
+
+    results = {"objects": []}
     for detection in detections.boxes.data.tolist():
         xcar1, ycar1, xcar2, ycar2, score, class_id = detection
+
+        results["objects"].append(
+            {
+                "bbox": [xcar1, ycar1, xcar2, ycar2],
+                "class_id": class_id,
+                "score": score,
+            }
+        )
 
         if int(class_id) not in vehicles:
             continue

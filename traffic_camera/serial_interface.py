@@ -5,12 +5,11 @@
 # Python Version: 1.1
 
 import serial.tools.list_ports
-from time import sleep
 import json
+import math
 
 
 # Initializations
-ports = serial.tools.list_ports.comports()
 serialInst = serial.Serial()
 
 
@@ -18,17 +17,22 @@ def connect_USB():
     """Establishes a connection to a peripheral (radar)
     via serial interface."""
 
-    portList = [str(onePort) for onePort in ports]
+    portVar = next(
+        (port.device for port in serial.tools.list_ports.comports() if "ACM" in port.device),
+        None,
+    )
+    if portVar is None:
+        raise RuntimeError("Radar Sensor not detected (no ttyACM device available)")
 
-    portVar = portList[0][0:12]
     print("Connected to USB Port: " + portVar + "!")
-
-    if "ACM" not in portVar:  # Connects OPS243 to ttyACM0 port
-        raise Exception("Radar Sensor not detected!")
 
     serialInst.baudrate = 9600
     serialInst.port = portVar
     serialInst.open()
+
+
+def read_config():
+    _set_config(b"A.")
 
 
 def send_config():
@@ -39,21 +43,23 @@ def send_config():
     # R>10 (Reported Speed Minimum Filter Setting at 10 mph)
     # OJ (Turn on JSON format)
     # M>150 (Minimum Speed Magnitude at least 150)
-    _set_config(b'OJ')
-    _set_config(b'Oz')
-    _set_config(b'S1')
-    _set_config(b'US')
-    _set_config(b'BV')
-    _set_config(b'R>5')
-    _set_config(b'M>150')
+    # _set_config(b"")
+    _set_config(b"OJ")
+    _set_config(b"SL")
+    _set_config(b"US")
+    _set_config(b"BV")
+    _set_config(b"R>5")
+    _set_config(b"M>50")
+
 
 def persist_config():
-    _set_config(b'A!')
+    _set_config(b"A!")
+
 
 def _set_config(value):
     """Sends configuration settings to OPS243 radar sensor."""
     serialInst.write(value + b"\r\n")
-    sleep(0.1)
+    # sleep(0.1)
 
     serialInst.flush()
 
@@ -72,7 +78,7 @@ def _serial_read_json():
         print(data)
 
 
-def data_array_any_amount(speed_limit, queue3, e):
+def data_array_any_amount(speed_limit, queue3, e, on_speed=None):
     """Store the bytes into a list of variable size 'array_length'.
 
     With a timeout, the function will run until there is a timeout.
@@ -82,13 +88,13 @@ def data_array_any_amount(speed_limit, queue3, e):
                    into queue3.
     - queue3: Queue object that receives speed data.
     - e: Event object that triggers on and off the camera_capture process.
+    - on_speed: optional callback for each valid sensor speed.
     """
     # This private function is a working improvement of data_array(),
     # which aims to return arrays of variable array sizes.
     serialInst.timeout = 0.3
 
     if serialInst.in_waiting:
-
         speed_data_list = []
 
         sw = 0
@@ -104,6 +110,10 @@ def data_array_any_amount(speed_limit, queue3, e):
                 continue
             if parsed_data.get("speed"):
                 speed = abs(float(parsed_data["speed"]))  # Read value of key 'speed'.
+                if not math.isfinite(speed):
+                    continue
+                if on_speed is not None:
+                    on_speed(speed)
                 speed_data_list.append(speed)  # Append speed to list.
 
                 maxVal = max(speed_data_list)

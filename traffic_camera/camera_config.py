@@ -25,12 +25,13 @@ def capture_num_frames(send_queue, e1, receive_queue, path):
     camera = Picamera2()
     # Picamera2.set_logging(level=Picamera2.DEBUG, msg="%(levelname)s: %(message)s")
     camera.zoom = (0.35, 0.35, 0.30, 0.30)
+    camera.resolution = (1920, 1080)
     # camera.color_effects = (128,128) # black and white
     camera.contrast = 13
     # camera.shutter_speed = 8000
     camera.exposure_mode = "sports"
     camera.iso = 400
-    # still_config = camera.create_still_configuration()
+    still_config = camera.create_still_configuration()
     camera.start()
     # Runs background process
     pending_writes = []
@@ -41,24 +42,30 @@ def capture_num_frames(send_queue, e1, receive_queue, path):
             max_speed = receive_queue.get()
             i = 0
             while e1.is_set():
-              filename = f"{path}/image{i:02d}_max_speed{int(max_speed):02d}.mph.jpg"
-              def signal_function(job : Job):
-                pic_array.append(filename)
+                filename = f"{path}/image{i:02d}_max_speed{int(max_speed):02d}.mph.jpg"
 
-                print(f"Captured {filename}!")
+                def signal_function(job: Job):
+                    pic_array.append(filename)
 
-                # Remove job from pending_writes list
-                pending_writes.remove(job)
-                if len(pending_writes) == 0:
-                    # Puts array of images into queue after all images are captured
-                    send_queue.put(pic_array)
+                    print(f"Captured {filename}!")
 
-              job = camera.capture_file(filename, wait=None, signal_function=signal_function)
-              pending_writes.append(job)
-              i += 1
+                    # Remove job from pending_writes list
+                    pending_writes.remove(job)
+                    if len(pending_writes) == 0:
+                        # Puts array of images into queue after all images are captured
+                        send_queue.put(pic_array)
 
-              if not e1.is_set():
-                break  # Ends camera capture process
-              time.sleep(1)
+                job = camera.switch_mode_and_capture_file(
+                    still_config,
+                    filename,
+                    wait=None,
+                    signal_function=signal_function,
+                )
+                pending_writes.append(job)
+                i += 1
+
+                if not e1.is_set():
+                    break  # Ends camera capture process
+                time.sleep(0.1)
         else:
             pass

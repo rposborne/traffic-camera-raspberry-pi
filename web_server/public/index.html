@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101b25">
+  <title>Traffic Camera · Live radar</title>
+  <style>
+    :root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f3f5f4; color: #17242d; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    button { font: inherit; }
+    .shell { width: min(100%, 1040px); margin: 0 auto; padding: 0 18px 48px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; min-height: 78px; gap: 12px; }
+    .brand { display: flex; align-items: center; gap: 11px; font-size: 15px; font-weight: 800; letter-spacing: -.025em; }
+    .brand-mark { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: #182b32; color: #d9f17b; font-size: 22px; }
+    .topbar-note { color: #6a777d; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; }
+    .hero { overflow: hidden; position: relative; border-radius: 28px; background: #12232b; color: #fff; padding: 27px 27px 26px; box-shadow: 0 18px 38px rgba(20, 44, 45, .13); }
+    .hero::after { content: ""; position: absolute; width: 290px; height: 290px; border: 1px solid rgba(209,240,124,.15); border-radius: 50%; right: -130px; top: -125px; box-shadow: 0 0 0 45px rgba(209,240,124,.035), 0 0 0 95px rgba(209,240,124,.025); pointer-events: none; }
+    .eyebrow { color: #b9cdcf; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .15em; }
+    .hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; position: relative; z-index: 1; }
+    .hero h1 { font-size: clamp(27px, 5vw, 37px); letter-spacing: -.055em; line-height: 1.1; margin: 10px 0 0; }
+    .status { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; border: 1px solid rgba(255,255,255,.18); border-radius: 99px; padding: 8px 10px; font-size: 12px; font-weight: 700; background: rgba(255,255,255,.06); }
+    .status-dot { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: #aab8ba; }
+    .status.online .status-dot { background: #ceee7f; box-shadow: 0 0 0 3px rgba(206,238,127,.14); }
+    .speed-panel { margin-top: 36px; position: relative; z-index: 1; }
+    .speed-label { color: #c1d0d1; font-size: 13px; font-weight: 650; }
+    .speed-line { display: flex; align-items: baseline; gap: 10px; margin-top: 1px; }
+    .speed { font-size: clamp(78px, 16vw, 132px); line-height: 1; font-weight: 750; letter-spacing: -.09em; font-variant-numeric: tabular-nums; color: #d9f17b; }
+    .unit { color: #d9f17b; font-size: clamp(23px, 5vw, 34px); font-weight: 700; letter-spacing: -.04em; }
+    .reading-note { min-height: 21px; margin: 9px 0 0; color: #c1d0d1; font-size: 13px; }
+    .hero-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid rgba(255,255,255,.13); margin-top: 27px; padding-top: 17px; color: #b9cdcf; font-size: 12px; }
+    .hero-footer strong { color: white; font-weight: 650; }
+    .archive { padding-top: 33px; }
+    .section-heading { display: flex; justify-content: space-between; align-items: end; gap: 12px; }
+    .section-heading h2 { font-size: 23px; letter-spacing: -.05em; margin: 5px 0 0; }
+    .section-heading p { color: #738087; font-size: 13px; margin: 0 0 2px; }
+    .days { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 18px -18px 0; padding: 0 18px 4px; }
+    .days::-webkit-scrollbar { display: none; }
+    .day { flex: 0 0 auto; border: 1px solid #dce3e2; background: white; color: #465960; border-radius: 12px; padding: 11px 15px; cursor: pointer; font-size: 13px; font-weight: 700; }
+    .day[aria-pressed="true"] { background: #183137; color: white; border-color: #183137; }
+    .day:focus-visible, .event-card:focus-visible { outline: 3px solid #80a83b; outline-offset: 3px; }
+    .events { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 17px; }
+    .event-card { overflow: hidden; display: flex; flex-direction: column; min-width: 0; border: 1px solid #e3e9e7; border-radius: 18px; background: white; color: inherit; text-decoration: none; box-shadow: 0 3px 12px rgba(25,46,46,.035); }
+    .event-card:hover { border-color: #b8c8c4; transform: translateY(-1px); }
+    .event-image { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; background: #e3eae6; }
+    .event-placeholder { display: grid; place-items: center; width: 100%; aspect-ratio: 16 / 10; background: #e5ece8; color: #697b79; font-size: 12px; }
+    .event-body { display: flex; align-items: center; justify-content: space-between; gap: 9px; padding: 13px 14px 14px; }
+    .event-time { display: block; font-weight: 750; font-size: 14px; }
+    .event-sub { display: block; margin-top: 3px; color: #75828a; font-size: 12px; }
+    .event-speed { flex: 0 0 auto; padding: 7px 9px; border-radius: 9px; background: #edf4d9; color: #344c20; font-size: 12px; font-weight: 800; }
+    .empty { grid-column: 1 / -1; border: 1px dashed #ced9d5; border-radius: 17px; padding: 26px 20px; text-align: center; color: #697b79; background: #f9faf9; font-size: 14px; }
+    @media (max-width: 600px) {
+      .shell { padding-left: 16px; padding-right: 16px; }
+      .topbar { min-height: 68px; }
+      .topbar-note { display: none; }
+      .hero { padding: 22px 21px; border-radius: 23px; }
+      .hero h1 { margin-top: 8px; }
+      .hero-top { flex-wrap: wrap; }
+      .status { padding: 7px 9px; }
+      .speed-panel { margin-top: 35px; }
+      .speed { font-size: clamp(86px, 23vw, 115px); }
+      .hero-footer { margin-top: 24px; }
+      .archive { padding-top: 29px; }
+      .section-heading p { display: none; }
+      .days { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
+      .events { grid-template-columns: 1fr; }
+      .event-card { flex-direction: row; min-height: 112px; }
+      .event-image, .event-placeholder { width: 39%; aspect-ratio: auto; align-self: stretch; object-fit: cover; }
+      .event-body { flex: 1; min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">◉</span> Traffic Camera</div>
+      <span class="topbar-note">Radar dashboard</span>
+    </header>
+
+    <section class="hero" aria-labelledby="live-title">
+      <div class="hero-top">
+        <div><div class="eyebrow">OPS243 radar sensor</div><h1 id="live-title">Live radar</h1></div>
+        <div class="status" id="radar-status" role="status"><span class="status-dot"></span><span id="status-text">Connecting</span></div>
+      </div>
+      <div class="speed-panel">
+        <div class="speed-label" id="speed-label">Latest detected speed</div>
+        <div class="speed-line"><span class="speed" id="speed">—</span><span class="unit">mph</span></div>
+        <p class="reading-note" id="reading-note">Waiting for radar data…</p>
+      </div>
+      <div class="hero-footer"><span>Sensor status</span><strong id="sensor-detail">Checking connection</strong></div>
+    </section>
+
+    <section class="archive" aria-labelledby="archive-title">
+      <div class="section-heading"><div><div class="eyebrow" style="color:#678079">Camera archive</div><h2 id="archive-title">Captured events</h2></div><p>Browse photos by date</p></div>
+      <div class="days" id="days" aria-label="Available dates"></div>
+      <div class="events" id="events" aria-live="polite"><div class="empty">Loading events…</div></div>
+    </section>
+  </main>
+  <script>
+    const statusEl = document.getElementById('radar-status');
+    const statusText = document.getElementById('status-text');
+    const speedEl = document.getElementById('speed');
+    const readingNote = document.getElementById('reading-note');
+    const sensorDetail = document.getElementById('sensor-detail');
+    const daysEl = document.getElementById('days');
+    const eventsEl = document.getElementById('events');
+    let availableDays = [];
+    let selectedDay = null;
+    let eventRequest = 0;
+
+    function relativeTime(timestamp) {
+      const seconds = Math.max(0, Math.floor(Date.now() / 1000 - timestamp));
+      if (seconds < 5) return 'just now';
+      if (seconds < 60) return `${seconds}s ago`;
+      if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+      return new Date(timestamp * 1000).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+    }
+
+    async function updateRadar() {
+      try {
+        const response = await fetch('/api/radar', { cache: 'no-store' });
+        if (!response.ok) throw new Error('Radar request failed');
+        const data = await response.json();
+        const online = data.online === true;
+        const speed = Number(data.last_speed);
+        const hasReading = data.last_speed !== null && data.last_seen !== null && Number.isFinite(speed) && Number.isFinite(Number(data.last_seen));
+        statusEl.classList.toggle('online', online);
+        statusText.textContent = online ? 'Sensor online' : 'Sensor offline';
+        sensorDetail.textContent = online ? 'Listening for vehicles' : 'No recent sensor update';
+        speedEl.textContent = hasReading ? Number.isInteger(speed) ? String(speed) : speed.toFixed(1) : '—';
+        readingNote.textContent = hasReading ? `Last detection ${relativeTime(Number(data.last_seen))}` : online ? 'Waiting for a vehicle…' : 'No readings available';
+      } catch (_) {
+        statusEl.classList.remove('online');
+        statusText.textContent = 'Connection lost';
+        sensorDetail.textContent = 'Cannot reach camera server';
+        readingNote.textContent = 'Live radar is unavailable';
+      }
+    }
+
+    function displayDay(day) {
+      if (!/^\d{8}$/.test(day)) return day;
+      const parsed = new Date(Number(day.slice(0, 4)), Number(day.slice(4, 6)) - 1, Number(day.slice(6, 8)));
+      return parsed.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function setEmpty(message) {
+      eventsEl.replaceChildren();
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = message;
+      eventsEl.append(empty);
+    }
+
+    function renderDays() {
+      daysEl.replaceChildren();
+      for (const day of availableDays) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'day';
+        button.textContent = displayDay(day);
+        button.setAttribute('aria-pressed', String(day === selectedDay));
+        button.addEventListener('click', () => selectDay(day, true));
+        daysEl.append(button);
+      }
+    }
+
+    async function selectDay(day, updateUrl) {
+      selectedDay = day;
+      renderDays();
+      if (updateUrl) history.pushState({}, '', `?date=${encodeURIComponent(day)}`);
+      const request = ++eventRequest;
+      setEmpty('Loading events…');
+      try {
+        const response = await fetch(`/events/${encodeURIComponent(day)}`);
+        if (!response.ok) throw new Error('Events request failed');
+        const data = await response.json();
+        if (request !== eventRequest) return;
+        const events = Array.isArray(data.events) ? data.events.sort((a, b) => b.name.localeCompare(a.name)) : [];
+        if (!events.length) { setEmpty('No captured events for this date.'); return; }
+        eventsEl.replaceChildren();
+        for (const event of events) {
+          const card = document.createElement('a');
+          card.className = 'event-card';
+          card.href = event.path;
+          const photos = Array.isArray(event.photos) ? event.photos : [];
+          if (photos.length) {
+            const image = document.createElement('img');
+            image.className = 'event-image';
+            image.src = photos[0].path;
+            image.alt = `Traffic capture at ${event.name}`;
+            image.loading = 'lazy';
+            card.append(image);
+          } else {
+            const placeholder = document.createElement('div');
+            placeholder.className = 'event-placeholder';
+            placeholder.textContent = 'No preview';
+            card.append(placeholder);
+          }
+          const body = document.createElement('div');
+          body.className = 'event-body';
+          const info = document.createElement('div');
+          const time = document.createElement('span');
+          time.className = 'event-time';
+          time.textContent = /^\d{2}-\d{2}-\d{2}$/.test(event.name) ? event.name.replaceAll('-', ':') : event.name;
+          const sub = document.createElement('span');
+          sub.className = 'event-sub';
+          sub.textContent = `${photos.length} photo${photos.length === 1 ? '' : 's'}`;
+          info.append(time, sub);
+          body.append(info);
+          const match = photos.map(photo => /max_speed(\d+)\.mph/i.exec(photo.name)).find(Boolean);
+          if (match) {
+            const badge = document.createElement('span');
+            badge.className = 'event-speed';
+            badge.textContent = `${Number(match[1])} mph`;
+            body.append(badge);
+          }
+          card.append(body);
+          eventsEl.append(card);
+        }
+      } catch (_) {
+        if (request === eventRequest) setEmpty('Could not load events. Please try again.');
+      }
+    }
+
+    async function loadDays() {
+      try {
+        const response = await fetch('/days');
+        if (!response.ok) throw new Error('Days request failed');
+        const data = await response.json();
+        availableDays = Array.isArray(data.days) ? data.days : [];
+        const requested = new URLSearchParams(location.search).get('date');
+        if (availableDays.length) selectDay(availableDays.includes(requested) ? requested : availableDays[0], false);
+        else setEmpty('No captures yet. New events will appear here.');
+      } catch (_) {
+        setEmpty('Could not load the archive. Please try again.');
+      }
+    }
+
+    window.addEventListener('popstate', () => {
+      const requested = new URLSearchParams(location.search).get('date');
+      if (availableDays.length) selectDay(availableDays.includes(requested) ? requested : availableDays[0], false);
+    });
+    updateRadar();
+    setInterval(updateRadar, 2000);
+    loadDays();
+  </script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101b25">
+  <title>Captured event · Traffic Camera</title>
+  <style>
+    :root { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f3f5f4; color: #17242d; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; }
+    .shell { width: min(100%, 900px); margin: 0 auto; padding: 0 18px 48px; }
+    .topbar { min-height: 74px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .brand { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 800; letter-spacing: -.025em; color: inherit; text-decoration: none; }
+    .brand-mark { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: #182b32; color: #d9f17b; font-size: 22px; }
+    .back { color: #355c55; font-size: 13px; font-weight: 750; text-decoration: none; padding: 10px 0 10px 10px; }
+    a:focus-visible { outline: 3px solid #80a83b; outline-offset: 3px; }
+    .heading { border-radius: 23px; background: #12232b; color: white; padding: 25px; }
+    .eyebrow { color: #b9cdcf; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .15em; }
+    h1 { font-size: clamp(27px, 6vw, 38px); letter-spacing: -.055em; margin: 8px 0 5px; }
+    .subtitle { color: #b9cdcf; margin: 0; font-size: 14px; }
+    .photos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 19px; }
+    .photo { overflow: hidden; display: block; border-radius: 18px; border: 1px solid #e0e7e4; background: white; color: inherit; text-decoration: none; }
+    .photo img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; background: #dce5e0; }
+    .photo-label { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 14px; font-size: 13px; font-weight: 700; }
+    .photo-label span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .speed { color: #344c20; background: #edf4d9; border-radius: 8px; padding: 6px 8px; white-space: nowrap; font-size: 12px; }
+    .message { grid-column: 1 / -1; padding: 28px; border-radius: 18px; background: white; color: #697b79; text-align: center; font-size: 14px; }
+    @media (max-width: 600px) { .shell { padding-left: 16px; padding-right: 16px; } .topbar { min-height: 68px; } .heading { padding: 22px; } .photos { grid-template-columns: 1fr; gap: 12px; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar"><a href="/" class="brand"><span class="brand-mark" aria-hidden="true">◉</span> Traffic Camera</a><a class="back" id="back" href="/">← Archive</a></header>
+    <section class="heading"><div class="eyebrow">Captured event</div><h1 id="title">Loading…</h1><p class="subtitle" id="subtitle">Fetching photos</p></section>
+    <div class="photos" id="photos"><div class="message">Loading photos…</div></div>
+  </main>
+  <script>
+    const parts = location.pathname.split('/').filter(Boolean);
+    const day = parts[1] || '';
+    const eventName = parts[2] || '';
+    document.getElementById('back').href = `/?date=${encodeURIComponent(day)}`;
+    const photosEl = document.getElementById('photos');
+    const titleEl = document.getElementById('title');
+    const subtitleEl = document.getElementById('subtitle');
+    function message(text) {
+      photosEl.replaceChildren();
+      const item = document.createElement('div');
+      item.className = 'message';
+      item.textContent = text;
+      photosEl.append(item);
+    }
+    async function loadEvent() {
+      try {
+        const response = await fetch(`/api/event_details/${encodeURIComponent(day)}/${encodeURIComponent(eventName)}`);
+        if (!response.ok) throw new Error('Request failed');
+        const data = await response.json();
+        if (!Array.isArray(data.photos)) throw new Error('Invalid response');
+        titleEl.textContent = /^\d{2}-\d{2}-\d{2}$/.test(eventName) ? eventName.replaceAll('-', ':') : eventName;
+        subtitleEl.textContent = `${data.photos.length} photo${data.photos.length === 1 ? '' : 's'} · ${day}`;
+        if (!data.photos.length) { message('No photos for this event.'); return; }
+        photosEl.replaceChildren();
+        for (const photo of data.photos) {
+          const link = document.createElement('a');
+          link.className = 'photo';
+          link.href = photo.path;
+          link.target = '_blank';
+          link.rel = 'noopener';
+          const image = document.createElement('img');
+          image.src = photo.path;
+          image.alt = photo.name;
+          image.loading = 'lazy';
+          const label = document.createElement('div');
+          label.className = 'photo-label';
+          const name = document.createElement('span');
+          name.textContent = photo.name;
+          label.append(name);
+          const match = /max_speed(\d+)\.mph/i.exec(photo.name);
+          if (match) {
+            const speed = document.createElement('span');
+            speed.className = 'speed';
+            speed.textContent = `${Number(match[1])} mph`;
+            label.append(speed);
+          }
+          link.append(image, label);
+          photosEl.append(link);
+        }
+      } catch (_) {
+        titleEl.textContent = 'Event unavailable';
+        subtitleEl.textContent = 'The photos could not be loaded.';
+        message('Please return to the archive and try again.');
+      }
+    }
+    loadEvent();
+  </script>
+</body>
+</html>
